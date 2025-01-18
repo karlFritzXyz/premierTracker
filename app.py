@@ -71,6 +71,7 @@ class myApp(App):
     @on(SelectionList.SelectedChanged)
     def updateTable(self) -> None:
         self.query_one(DataTable).clear()
+        self.rowKeys = []
         engine = dbConnect()
         with Session(engine) as session:
             self.populateTable(session)
