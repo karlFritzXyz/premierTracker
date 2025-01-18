@@ -23,7 +23,7 @@ class Genre(SQLModel, table = True):
 
 class Rating(SQLModel, table = True):
     id: int | None = Field(default = None, primary_key = True)
-    rating: str | None = None
+    rating: int | None = None
     premier: str | None = Field(default = None, foreign_key = "premier.id")
 
 class Search(SQLModel, table = True):

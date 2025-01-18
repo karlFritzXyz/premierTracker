@@ -28,7 +28,7 @@ class myApp(App):
     def initialView(self, event: Mount):
         self.date1 = None
         self.date2 = None
-        self.columnKeys = self.query_one(DataTable).add_columns(*["firstAired", "premierDate", "season", "title", "year", "country", "language", "rating"])
+        self.columnKeys = self.query_one(DataTable).add_columns(*["firstAired", "premierDate", "season", "title", "year", "country", "language", "rating", "genres", "link"])
         self.rowKeys = []
         self.query_one(Pretty).update("Enter start and end dates")
 
@@ -67,6 +67,13 @@ class myApp(App):
             self.exportData()
         else:
             self.importData()
+
+    @on(SelectionList.SelectedChanged)
+    def updateTable(self) -> None:
+        self.query_one(DataTable).clear()
+        engine = dbConnect()
+        with Session(engine) as session:
+            self.populateTable(session)
 
     def importData(self):
         minn = date.max
@@ -133,7 +140,7 @@ class myApp(App):
         self.countries = sorted(self.countries)
         countriesList = self.query_one("#countries")
         for i, country in enumerate(self.countries):
-            countriesList.add_option((country, i))
+            countriesList.add_option((country, country, True))
 
     def populateLanguages(self, session):
         self.languages = set()
@@ -146,7 +153,7 @@ class myApp(App):
         self.languages = sorted(self.languages)
         languagesList = self.query_one("#languages")
         for i, language in enumerate(self.languages):
-            languagesList.add_option((language, i))
+            languagesList.add_option((language, language, True))
 
     def populateGenres(self, session):
         self.genres = set()
@@ -161,14 +168,23 @@ class myApp(App):
         self.genres = sorted(self.genres)
         genresList = self.query_one("#genres")
         for i, genre in enumerate(self.genres):
-            genresList.add_option((genre, i))
+            genresList.add_option((genre, genre, True))
 
     def populateTable(self, session):
         table = self.query_one(DataTable)
-        for premier, rating in session.exec(
-            select(Premier, Rating).where(Premier.id == Rating.premier).where(self.date1 <= Premier.premierDate).where(Premier.premierDate <= self.date2)
-        ):
-            self.rowKeys.append(table.add_row(*[premier.firstAired, premier.premierDate, premier.season, premier.title, premier.year, premier.country, premier.language, rating.rating]))
+        selectedLanguages = self.query_one("#languages").selected
+        selectedCountries = self.query_one("#countries").selected
+        selectedGenres = self.query_one("#genres").selected
+        for premier in session.exec(select(Premier).where(self.date1 <= Premier.premierDate).where(Premier.premierDate <= self.date2)):
+            genres = []
+            for genre in session.exec(select(Genre).where(premier.id == Genre.premier).where(self.date1 <= premier.premierDate).where(premier.premierDate <= self.date2)):
+                genres.append(genre.genre)
+            ratings = []
+            for rating in session.exec(select(Rating).where(premier.id == Rating.premier).where(self.date1 <= premier.premierDate).where(premier.premierDate <= self.date2)):
+                ratings.append(rating.rating)
+            if not all(genre in selectedGenres for genre in genres) or not premier.language in selectedLanguages or not premier.country in selectedCountries:
+                continue
+            self.rowKeys.append(table.add_row(*[premier.firstAired, premier.premierDate, premier.season, premier.title, premier.year, premier.country, premier.language, "".join(ratings), ",".join(genres), f"https://www.imdb.com/title/{premier.imdbId}"]))
         self.query_one("#export").disabled = False
 
     # @on(DataTable.HeaderSelected)
